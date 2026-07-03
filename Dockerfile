@@ -21,4 +21,4 @@ COPY . ./
 EXPOSE 8853
 
 # RUN uv run fastapi run server.py --port 8853
-CMD ["uv", "run", "gunicorn", "server:app", "-k", "uvicorn.workers.UvicornWorker", "-b", "0.0.0.0:8853", "-w", "2"]
+CMD ["uv", "run", "gunicorn", "main:app", "-k", "uvicorn.workers.UvicornWorker", "-b", "0.0.0.0:8853", "-w", "2"]
