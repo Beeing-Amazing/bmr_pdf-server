@@ -75,7 +75,7 @@ def extract_ec_file(pdf_file: BinaryIO):
     for page in out:
         for row in page:
             flattened.append(row)
-    return { "extract" : flattened }
+    return { "extract_ec" : flattened }
 
 
 @router.post("/despiece")
@@ -111,5 +111,5 @@ def extract_desp_file(pdf_file: BinaryIO):
             for row in rows.values():
                 row.sort(key=lambda w: w["x0"])
                 out.append([w["text"] for w in row])
-    return { "extract": out }
+    return { "extract_desp": out }
 
