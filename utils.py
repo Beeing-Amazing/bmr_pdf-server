@@ -1,5 +1,4 @@
 import os
-import time
 import logging
 from pathlib import Path
 from secrets import compare_digest
