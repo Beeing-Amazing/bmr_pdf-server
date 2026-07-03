@@ -1,5 +1,7 @@
 from typing import BinaryIO
 from collections import defaultdict
+import statistics
+import re
 
 from fastapi import APIRouter, Depends, UploadFile, File
 
@@ -16,6 +18,49 @@ router = APIRouter(prefix="/extract", tags=["files","pdf","table-extract"])
 def extract_ec(file: UploadFile = File(...), user: str = Depends(authenticate)):
     return extract_ec_file(file.file)
 
+def is_number_like(s : str):
+    return bool(re.match(r"^\s*-?\d+([.,]\d+)?\s*$", s))
+
+def row_similarity(prev, curr):
+    """
+    Heuristic: decide if curr is a continuation of prev
+    Criteria: is curr mostly empty and has no numeric data?
+    """
+    prev_nonempty = sum(bool(str(x).strip()) for x in prev)
+    curr_nonempty = sum(bool(str(x).strip()) for x in curr)
+    # has few filled columns
+    sparse_curr = curr_nonempty <= 2
+    # last columns (numeric)
+    prev_tail = prev[-3:] if len(prev) >= 3 else []
+    curr_tail = curr[-3:] if len(curr) >= 3 else []
+
+    # has empty or partial numeric columns
+    tail_empty = all(not str(x).strip() for x in curr_tail)
+    return sparse_curr and tail_empty
+
+def merge_wrapped_rows(rows):
+    merged = []
+    for i, row in enumerate(rows):
+        if not merged:
+            merged.append(row)
+            continue
+        prev = merged[-1]
+
+        # detect overflow row
+        if row_similarity(prev, row) and (i >= 2):
+            # merge w safe concat
+            new_row = []
+            for a, b in zip(prev, row):
+                a = a or ""
+                b = b or ""
+                new_row.append((a + " " + b).strip())
+
+            merged[-1] = new_row
+        else:
+            merged.append(row)
+    return merged
+
+
 def extract_ec_file(pdf_file: BinaryIO):
     """
     Parse EC pdf files. Discard header on all pages.
@@ -25,6 +70,7 @@ def extract_ec_file(pdf_file: BinaryIO):
     """
     out = []
     with pdfplumber.open(pdf_file) as pdf:
+        header_row_kw = ["Descrição","Preço"]
         for page_num, page in enumerate(pdf.pages):
             crop = page.crop((20,240,page.width-24,page.height-200))
             # crop.to_image(resolution=150).save(f"crop_ec_{page_num:03}.png",format="PNG")
@@ -40,20 +86,22 @@ def extract_ec_file(pdf_file: BinaryIO):
                 }
             )
             # clean parsed table
-            idxs = []
+            idxs_drop = []
             for i, row in enumerate(result):
                 row = ["" if cell is None else cell for cell in row] # if parse fails handle edge cases
 
                 if not any(s.strip() for s in row):
-                    idxs.append(i)
-                elif any(s.strip(" ") for s in row[-3:]):
+                    idxs_drop.append(i)
+                if (page_num > 0) and all(cell in row for cell in header_row_kw):
+                    idxs_drop.append(i)
+                elif any(s.strip() for s in row[-3:]):
                     qt, prec, tot = row[-3:]
                     qt = qt.lower().strip().removesuffix("un").strip().replace(",",".")
                     prec = prec.strip().replace(",",".")
                     tot = tot.strip().replace(",",".").replace(" ","")
 
-                    row[-3:] = [qt,prec,tot]
-            remove = set(idxs)
+                    result[i][-3:] = [qt,prec,tot]
+            remove = set(idxs_drop)
             filter = [x for i, x in enumerate(result) if i not in remove]
 
             # show debug crop
@@ -75,10 +123,10 @@ def extract_ec_file(pdf_file: BinaryIO):
     for page in out:
         for row in page:
             flattened.append(row)
-    return { "extract_ec" : flattened }
+    return { "extract_ec" : merge_wrapped_rows(flattened) }
 
 
-@router.post("/despiece")
+@router.post("/desp")
 def extract_desp(file: UploadFile = File(...), user: str = Depends(authenticate)):
     return extract_desp_file(file.file)
 
