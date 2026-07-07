@@ -23,33 +23,31 @@ def extract_desp_file(pdf_file: BinaryIO):
     :returns: List of rows as structured dicts with numbered column names
     """
     out = []
+    all_rows = []
+    centers = []
     with pdfplumber.open(pdf_file) as pdf:
         xTOL = 12
-        for page_num, page in enumerate(pdf.pages):
+        for page in pdf.pages:
             crop = page.crop((30, 100, page.width - 24, page.height - 32))
-
             words = crop.extract_words(
                 x_tolerance=4,
                 y_tolerance=3,
                 keep_blank_chars=True,
             )
 
-            if not words:
-                continue
-
             # group by row
             rows = defaultdict(list)
             for w in words:
-                row_key = round(w["top"] / 3)
-                rows[row_key].append(w)
-
-            # page-wise centers
-            centers = []
+                rows[round(w["top"] / 3)].append(w)
             for row in rows.values():
                 row.sort(key=lambda w: w["x0"])
-                row_text = " ".join(w["text"] for w in row)
 
-                if any(row_text.startswith(x) for x in ["OS ", "RMO "]):
+            all_rows.extend(rows.values())
+
+            # compute column centers
+            for row in rows.values():
+                row_text = " ".join(w["text"] for w in row)
+                if row_text.startswith(("OS ", "RMO ")):
                     continue
 
                 for w in row:
@@ -61,32 +59,38 @@ def extract_desp_file(pdf_file: BinaryIO):
                             break
                     else:
                         centers.append(x)
-            centers.sort()
+        centers.sort()
 
-            def nearest_col(x, centers):
-                return min(range(len(centers)), key=lambda i: abs(x - centers[i]))
+        def nearest_col(x):
+            return min(range(len(centers)), key=lambda i: abs(x - centers[i]))
+        
+        # dict output format
+        seen_headers = set()
+        for row in all_rows:
+            row_text = " ".join(w["text"] for w in row)
+            row_dict = {}
 
-            # dict output format
-            for row in rows.values():
-                row.sort(key=lambda w: w["x0"])
-                row_text = " ".join(w["text"] for w in row)
-                row_dict = {}
-
-                if any(row_text.startswith(x) for x in ["OS ", "RMO "]):
-                    # Special naming for OS rows
-                    for i, w in enumerate(row):
-                        row_dict[f"os_col_{i}"] = w["text"]
-                else:
-                    # discovered column centers
-                    for w in row:
-                        col = nearest_col(w["x0"], centers)
-                        key = f"col_{col}"
-
-                        if key in row_dict:
-                            row_dict[key] += " " + w["text"]
-                        else:
-                            row_dict[key] = w["text"]
+            if row_text.startswith(("OS ", "RMO ")):
+                for i, w in enumerate(row):
+                    row_dict[f"header_row_col_{i}"] = w["text"]
+                # filter deduplicates
+                row_tuple = tuple(sorted(row_dict.items()))
+                if row_tuple not in seen_headers:
+                    seen_headers.add(row_tuple)
+                    out.append(row_dict)
+            else:
+                for w in row:
+                    key = f"col_{nearest_col(w['x0'])}"
+                    if key in row_dict:
+                        row_dict[key] += " " + w["text"]
+                    else:
+                        row_dict[key] = w["text"]
                 out.append(row_dict)
 
-    return { "extract_desp": out }
+        formatted_out = []
+        for row in out:
+            if not formatted_out or "header_row_col_0" in row:
+                formatted_out.append([])
+            formatted_out[-1].append(row)
 
+    return {"extract_desp": out}
