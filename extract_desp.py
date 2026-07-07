@@ -93,4 +93,4 @@ def extract_desp_file(pdf_file: BinaryIO):
                 formatted_out.append([])
             formatted_out[-1].append(row)
 
-    return {"extract_desp": out}
+    return {"extract_desp": formatted_out}
