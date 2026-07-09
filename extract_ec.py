@@ -11,7 +11,7 @@ router = APIRouter(prefix="/ec", tags=["ec","pdf","table-extract"])
 
 
 @router.post("/table")
-def extract_ec(file: UploadFile = File(...), user: str = Depends(authenticate)):
+async def extract_ec(file: UploadFile = File(...), user: str = Depends(authenticate)):
     return extract_ec_file(file.file)
 
 def is_number_like(s : str):

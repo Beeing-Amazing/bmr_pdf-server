@@ -11,7 +11,7 @@ router = APIRouter(prefix="/desp", tags=["desp","pdf","table-extract"])
 
 
 @router.post("/table")
-def extract_desp(file: UploadFile = File(...), user: str = Depends(authenticate)):
+async def extract_desp(file: UploadFile = File(...), user: str = Depends(authenticate)):
     return extract_desp_file(file.file)
 
 def extract_desp_file(pdf_file: BinaryIO):
