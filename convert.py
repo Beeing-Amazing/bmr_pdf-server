@@ -1,6 +1,8 @@
 from typing import BinaryIO
 from io import BytesIO
 from pathlib import Path
+from urllib.parse import quote
+
 
 from fastapi import APIRouter, Depends, UploadFile, File
 from fastapi.responses import StreamingResponse
@@ -19,12 +21,16 @@ async def convert_to_pdf(
 ):
     pdf_file = convert(file.file)
     filename = Path(file.filename).stem + ".pdf"
+    encoded_filename = quote(filename)
 
     return StreamingResponse(
         pdf_file,
         media_type="application/pdf",
         headers={
-            "Content-Disposition": f"attachment; filename={filename}"
+            "Content-Disposition": (
+                f"attachment; filename=\"{filename}\"; "
+                f"filename*=UTF-8''{encoded_filename}"
+            )
         }
     )
 
