@@ -147,5 +147,3 @@ def extract_ec_file(pdf_file: BinaryIO):
     flattened = merge_wrapped_rows(flattened)
 
     return { "extract_ec": [dict(zip(header_row_cols,row)) for row in flattened] }
-
-

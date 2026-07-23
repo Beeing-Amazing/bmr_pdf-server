@@ -3,9 +3,9 @@ from io import BytesIO
 from pathlib import Path
 from urllib.parse import quote
 
-
 from fastapi import APIRouter, Depends, UploadFile, File
 from fastapi.responses import StreamingResponse
+
 from weasyprint import HTML
 
 import utils
@@ -15,11 +15,11 @@ router = APIRouter(prefix="/convert", tags=["ec","pdf","files"])
 
 
 @router.post("/html-to-pdf")
-async def convert_to_pdf(
+async def html_to_pdf(
     file: UploadFile = File(...),
     user: str = Depends(authenticate)
 ):
-    pdf_file = convert(file.file)
+    pdf_file = convert_to_pdf(file.file)
     filename = Path(file.filename).stem + ".pdf"
     encoded_filename = quote(filename)
 
@@ -35,7 +35,7 @@ async def convert_to_pdf(
     )
 
 
-def convert(html_file: BinaryIO) -> BytesIO:
+def convert_to_pdf(html_file: BinaryIO) -> BytesIO:
     """
     Convert uploaded HTML file to PDF.
 
@@ -51,3 +51,5 @@ def convert(html_file: BinaryIO) -> BytesIO:
     pdf_file.seek(0)
 
     return pdf_file
+
+

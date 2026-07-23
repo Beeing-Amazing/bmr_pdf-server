@@ -4,11 +4,11 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 
-import extract, convert, utils
+import extract, convert, generate, utils
 
 
 app = FastAPI(
-    docs_url=None, # no docs
+    # docs_url=None, # no docs
     redoc_url=None,
     openapi_url=None
 )
@@ -50,4 +50,5 @@ async def log_requests(request: Request, call_next):
 
 app.include_router(extract.router)
 app.include_router(convert.router)
+app.include_router(generate.router)
 
